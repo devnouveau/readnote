@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -16,10 +17,9 @@ class Book extends Model
         return $this->hasMany(Review::class);
     }
 
-    #[Scope]
-    protected function title(Builder $query, string $title): void
+    public function scopeTitle(Builder $query, string $title): Builder
     {
-        $query->where('title', 'LIKE', '%' . $title . '%');
+        return $query->where('title', 'LIKE', '%' . $title . '%');
     }
 
     /* TODO :
@@ -29,31 +29,29 @@ class Book extends Model
         그러나 UI상 노출되는 표현과 메소드명은 도서목록을 필터링해서 조회하는 기능을 의미하는 것처럼 보일 수 있으므로
         혼란을 방지하기 위해 어떤 식으로 변경할지 검토가 필요함.
     */
-    #[Scope]
-    protected function popular(Builder $query, $from = null, $to = null): void
+
+    public function scopePopular(Builder $query, $from = null, $to = null): Builder|QueryBuilder
     {
-        $query->withCount([
+        return $query->withCount([
             'reviews' => fn(Builder $q) => $this->dateRangeFilter($q, $from, $to)
         ])
             ->orderBy('reviews_count', 'desc'); // 특정기간 등록된 리뷰가 많은 순으로 정렬
     }
 
-    #[Scope]
-    protected function highestRated(Builder $query, $from = null, $to = null): void
+    public function scopeHighestRated(Builder $query, $from = null, $to = null): Builder|QueryBuilder
     {
-        $query->withAvg([
+        return $query->withAvg([
             'reviews' => fn(Builder $q) => $this->dateRangeFilter($q, $from, $to)
         ], 'rating')
-            ->orderBy('reviews_avg_rating', 'desc'); // 특정기간 등록된 리뷰의 평균점이 많은 순으로 정렬
+            ->orderBy('reviews_avg_rating', 'desc');
     }
 
-    #[Scope]
-    private function minReviews(Builder $query, int $minReviews): void
+    public function scopeMinReviews(Builder $query, int $minReviews): Builder|QueryBuilder
     {
-        $query->having('reviews_count', '>=', $minReviews);
+        return $query->having('reviews_count', '>=', $minReviews);
     }
 
-    private function dateRangeFilter(Builder $query, $from = null, $to = null): void
+    private function dateRangeFilter(Builder $query, $from = null, $to = null): Builder|QueryBuilder
     {
         if ($from && !$to) {
             $query->where('created_at', '>=', $from);
@@ -62,5 +60,6 @@ class Book extends Model
         } elseif ($from && $to) {
             $query->whereBetween('created_at', [$from, $to]);
         }
+        return $query;
     }
 }
